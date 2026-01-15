@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './services/firebase';
 import Login from './components/Login';
@@ -150,16 +150,18 @@ const App: React.FC = () => {
 
   const generateDailyTip = async (date: string) => {
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Gere uma dica de saúde curta para ${userData.name}. Meta: ${userData.goal}. Máximo 15 palavras.`,
-        config: { systemInstruction: SYSTEM_INSTRUCTION }
-      });
-      const tip = response.text || "Beba água e mantenha o foco!";
+      const genAI = new GoogleGenerativeAI(process.env.API_KEY || "");
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const response = await model.generateContent(
+        SYSTEM_INSTRUCTION + `\n\nTarefa: Gere uma dica de saúde curta para ${userData.name}. Meta: ${userData.goal}. Máximo 15 palavras.`
+      );
+      
+      const tip = response.response.text() || "Beba água e mantenha o foco!";
       setDailyTip(tip);
       localStorage.setItem(`nutri_tip_${date}`, tip);
     } catch (e) {
+      console.error(e);
       setDailyTip("A constância é a chave do seu sucesso!");
     }
   };
@@ -182,7 +184,6 @@ const App: React.FC = () => {
     if (!inputVal) return;
     setIsAnalyzing(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       let prompt = "";
       
       if (mode === 'exercise') {
@@ -193,13 +194,11 @@ const App: React.FC = () => {
         prompt = `SUGESTÃO: Ingredientes: "${inputVal}". Sugira algo para o ${mealTypeContext}. Estime calorias. Use: [STATUS:VERDE][CALORIES:NUM][TYPE:MEAL]`;
       }
       
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { systemInstruction: SYSTEM_INSTRUCTION }
-      });
+      const genAI = new GoogleGenerativeAI(process.env.API_KEY || "");
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
       
-      const text = response.text || "";
+      const response = await model.generateContent(SYSTEM_INSTRUCTION + "\n\n" + prompt);
+      const text = response.response.text() || "";
       const cleanedFeedback = text.split('[STATUS:')[0];
       setFeedback(cleanedFeedback);
       
@@ -223,6 +222,7 @@ const App: React.FC = () => {
         localStorage.setItem('nutri_meals_history', JSON.stringify(updated));
       }
     } catch (error) {
+      console.error("Erro na IA:", error);
       setFeedback("O registro foi feito, continue firme!");
     } finally {
       setIsAnalyzing(false);
@@ -254,14 +254,25 @@ const App: React.FC = () => {
     setChatInput('');
     setIsChatting(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: updatedMessages.map(msg => ({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.text }] })),
-        config: { systemInstruction: SYSTEM_INSTRUCTION }
+      const genAI = new GoogleGenerativeAI(process.env.API_KEY || "");
+      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+      const chat = model.startChat({
+        history: [
+          { role: 'user', parts: [{ text: SYSTEM_INSTRUCTION }] },
+          { role: 'model', parts: [{ text: "Entendido. Sou sua NutriIA. Como posso ajudar?" }] },
+          ...chatMessages.map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }]
+          }))
+        ]
       });
-      setChatMessages(prev => [...prev, { role: 'model', text: response.text || "..." }]);
+
+      const result = await chat.sendMessage(userMsg.text);
+      const text = result.response.text();
+      setChatMessages(prev => [...prev, { role: 'model', text: text || "..." }]);
     } catch (error) {
+      console.error("Erro no Chat:", error);
       setChatMessages(prev => [...prev, { role: 'model', text: "Erro ao falar com a IA." }]);
     } finally {
       setIsChatting(false);
