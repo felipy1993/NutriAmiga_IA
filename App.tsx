@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from './services/firebase';
+import Login from './components/Login';
 
 // Configuração da Persona da Nutri IA
 const SYSTEM_INSTRUCTION = `Você é uma Inteligência Artificial que atua como guia alimentar e de saúde diário.
@@ -95,6 +98,18 @@ const App: React.FC = () => {
   const [chatInput, setChatInput] = useState('');
   const [isChatting, setIsChatting] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Load Data e Escuta Instalação
   useEffect(() => {
@@ -283,6 +298,18 @@ const App: React.FC = () => {
       max: (24.9 * (h * h)).toFixed(1)
     };
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#020617] items-center justify-center">
+         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login onLoginSuccess={() => {}} />;
+  }
 
   if (step >= 6) {
     const stats = calculateDailyCalories(selectedDate);

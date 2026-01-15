@@ -21,23 +21,23 @@
         .animate-pulse-slow { animation: pulse-slow 30s infinite ease-in-out; }
         body { -webkit-tap-highlight-color: transparent; }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.36.0"
-  }
-}
-</script>
+
 <script>
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('data:application/javascript;base64,c2VsZi.YWRkRXZlbnRMaXN0ZW5lcignZmV0Y2gnLCBmdW5jdGlvbihlKSB7IH0pOw==');
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(registration => {
+          console.log('SW registered: ', registration);
+        })
+        .catch(registrationError => {
+          console.log('SW registration failed: ', registrationError);
+        });
+    });
   }
 </script>
 </head>
 <body class="bg-[#020617] text-slate-100 font-sans antialiased">
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
